@@ -8,6 +8,10 @@ extension CharEx on String {
   bool get isVariable => !isUnitOperation && !isDoublePart;
 }
 
+extension OperatorEx on String {
+  bool get isMinus => this == '-';
+}
+
 const Set<String> _variableChars = {
   '0',
   '1',
@@ -21,3 +25,7 @@ const Set<String> _variableChars = {
   '9',
   '.'
 };
+
+extension MathOperationEx on List<MathOperation> {
+  bool get isBaseOperation => length == 3;
+}

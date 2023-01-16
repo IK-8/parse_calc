@@ -2,8 +2,8 @@ part of '../parse_calc.dart';
 
 class ParsingCalculator {
   final String function;
-
-  const ParsingCalculator(this.function);
+  final List<OperationType> priority;
+  const ParsingCalculator(this.function, {this.priority = basePriority});
 
   double calculate(Map<String, double> params) {
     final parsedParts = parse(params);
@@ -27,7 +27,7 @@ class ParsingCalculator {
       if (char.isDoublePart) {
         doubleS += char;
       } else {
-        if (doubleS.isNotEmpty && doubleS != '-') {
+        if (doubleS.isNotEmpty && !doubleS.isMinus) {
           add(MathOperation(OperationType.variable,
               value: double.parse(doubleS)));
           doubleS = '';
@@ -36,7 +36,7 @@ class ParsingCalculator {
           add(MathOperation(operationMap[char]!));
         } else if (char.isVariable) {
           add(MathOperation(OperationType.variable,
-              value: params[char]! * (doubleS == '-' ? -1 : 1)));
+              value: params[char]! * (doubleS.isMinus ? -1 : 1)));
           doubleS = '';
         }
       }
@@ -52,8 +52,9 @@ class ParsingCalculator {
     if (operation.isEmpty) {
       return null;
     }
-    if (operation.length == 3) {
-      return calcSequentialOperation(operation);
+    if (operation.isBaseOperation) {
+      return MathOperation(OperationType.variable,
+          value: calculatePair(operation));
     }
     List<MathOperation> withoutInternalGroups = [];
     //  Разбивает внутренние группы
@@ -79,51 +80,35 @@ class ParsingCalculator {
         withoutInternalGroups.add(itemOperation);
       }
     }
-    List<MathOperation> sequential = [];
-    //  Приоритетность операций
-    for (int i = 0; i < withoutInternalGroups.length; i += 2) {
-      if (i + 1 == withoutInternalGroups.length) {
-        sequential.add(withoutInternalGroups[i]);
-        break;
-      }
-      var operationType = withoutInternalGroups[i + 1].type;
-      if (_operationsPriority.contains(operationType)) {
-        var calc = calcSequentialOperation([
-          withoutInternalGroups[i],
-          withoutInternalGroups[i + 1],
-          withoutInternalGroups[i + 2],
-        ]);
-        if (calc != null) {
-          sequential.add(calc);
-          if (i + 3 < withoutInternalGroups.length) {
-            sequential.add(withoutInternalGroups[i + 3]);
-          }
-        }
-        i += 2;
-      } else {
-        sequential.add(withoutInternalGroups[i]);
-        sequential.add(withoutInternalGroups[i + 1]);
-      }
-    }
-    return calcSequentialOperation(sequential);
+    return calcProrityOperation(withoutInternalGroups);
   }
 
-  MathOperation? calcSequentialOperation(List<MathOperation> operation) {
+  MathOperation? calcProrityOperation(List<MathOperation> operation) {
     if (operation.isEmpty) {
       return null;
-    } else if (operation.length < 3) {
-      return operation.first;
-    } else if (operation.length == 3) {
-      return MathOperation(OperationType.variable, value: sum(operation));
-    } else {
-      return calcSequentialOperation([
-        calcSequentialOperation(operation.take(3).toList())!,
-        ...operation.skip(3)
-      ]);
+    } else if (operation.isBaseOperation) {
+      return MathOperation(OperationType.variable,
+          value: calculatePair(operation));
     }
+    List<MathOperation> calcListOperation = [...operation];
+    for (var currentOperator in priority) {
+      List<MathOperation> currentOperation = [...calcListOperation];
+      for (var i = 1; i < currentOperation.length; i += 2) {
+        var operator = currentOperation[i];
+        if (operator.type == currentOperator) {
+          var sum = calcProrityOperation(
+              [calcListOperation[i - 1], operator, calcListOperation[i + 1]])!;
+          currentOperation.removeRange(i - 1, i + 1);
+          currentOperation[i - 1] = sum;
+          i -= 2;
+        }
+      }
+      calcListOperation = currentOperation;
+    }
+    return calcListOperation.first;
   }
 
-  double sum(List<MathOperation> operation) {
+  double calculatePair(List<MathOperation> operation) {
     return _operationsAction[operation[1].type]!(
         operation[0].value!, operation[2].value!);
   }

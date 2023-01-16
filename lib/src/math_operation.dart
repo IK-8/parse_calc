@@ -12,6 +12,13 @@ const Map<String, OperationType> operationMap = {
   ')': OperationType.rpar
 };
 
+const List<OperationType> basePriority = [
+  OperationType.mul,
+  OperationType.div,
+  OperationType.add,
+  OperationType.sub,
+];
+
 class MathOperation {
   final double? value;
   final OperationType type;
